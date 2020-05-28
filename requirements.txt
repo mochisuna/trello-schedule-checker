@@ -1,0 +1,2 @@
+py-trello==0.16.0
+slackweb==1.0.5

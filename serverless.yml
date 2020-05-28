@@ -1,0 +1,28 @@
+service: trello-schedule-checker
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: ${opt:stage, self:custom.default_stage}
+  region: ${opt:region, self:custom.default_region}
+  
+plugins:
+  - serverless-python-requirements
+
+custom:
+  default_stage: dev
+  default_region: ap-northeast-1
+  environment:
+    dev: ${file(env/dev/env.yml)}
+    prd: ${file(env/prd/env.yml)}
+
+functions:
+  run:
+    handler: handler.schedule
+    environment: ${self:custom.environment.${self:provider.stage}}
+    events:
+      - http:
+          path: /
+          method: post
+      - schedule: cron(0 1 ? * MON-FRI *)
+    timeout: 300
