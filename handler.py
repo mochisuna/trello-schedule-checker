@@ -30,7 +30,6 @@ def within_period(name):
                 f'{today.year}/{period[0]}', "%Y/%m/%d")
             end = datetime.datetime.strptime(
                 f'{today.year}/{period[1]}', "%Y/%m/%d")
-            print(f'{begin} - {today} - {end}  = {begin <= today and today <= end}')
             return begin <= today and today <= end
         except ValueError:
             return False
