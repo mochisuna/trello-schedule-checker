@@ -38,30 +38,43 @@ def within_period(name):
 
 def schedule(event, context):
     client = TrelloClient(
-        api_key=os.environ['TRELLO_API_KEY'],
-        api_secret=os.environ['TRELLO_API_SECRET'],
-        token=os.environ['TRELLO_TOKEN'],
+        api_key=os.environ.get('TRELLO_API_KEY'),
+        api_secret=os.environ.get('TRELLO_API_SECRET'),
+        token=os.environ.get('TRELLO_TOKEN'),
     )
-    slack = slackweb.Slack(url=os.environ['WEBHOOK_URL'])
+    webhookUrl = os.environ.get('WEBHOOK_URL')
+    if webhookUrl:
+        slack = slackweb.Slack(url=webhookUrl)
+    else:
+        slack = None
     schedules = {}
-    for list in client.get_board(os.environ['TRELLO_BOARD_ID']).all_lists():
+    for list in client.get_board(os.environ.get('TRELLO_BOARD_ID')).all_lists():
         schedules[list.id] = {"name": list.name, "cards": []}
         for card in list.list_cards():
             target = parseCard(card)
             schedules[list.id]["cards"].append(target)
+    currentSchedule = schedules[os.environ.get('RUNNING_CAMPAIGN')]['cards']
+    if currentSchedule:
+        text = "現在稼働中のキャンペーンは以下の通りです\n"
+        for card in currentSchedule:
+            text += f"```キャンペーン名: {card['name']}\nラベル: {card['labels']}\nURL: {card['shortUrl']}```\n"
+        if slack:
+            slack.notify(text=text)
+        else:
+            print(text)
 
-    text = "現在稼働中のキャンペーンは以下の通りです\n"
-    for card in schedules[os.environ['RUNNING_CAMPAIGN']]['cards']:
-        text += f"```キャンペーン名: {card['name']}\nラベル: {card['labels']}\nURL: {card['shortUrl']}```\n"
-    slack.notify(text=text)
-
-    text = "現在予定しているキャンペーンは以下の通りです\n"
-    for card in schedules[os.environ['FUTURE_CAMPGAIGN']]['cards']:
-        text += f"```{card['name']}: {card['shortUrl']}```\n"
-    slack.notify(text=text)
+    futureSchedule = schedules[os.environ.get('FUTURE_CAMPGAIGN')]['cards']
+    if futureSchedule:
+        text = "現在予定しているキャンペーンは以下の通りです\n"
+        for card in futureSchedule:
+            text += f"```{card['name']}: {card['shortUrl']}```\n"
+        if slack:
+            slack.notify(text=text)
+        else:
+            print(text)
 
     response = {
         "statusCode": 200,
-        "body": json.dumps(schedules[os.environ['RUNNING_CAMPAIGN']]['cards'])
+        "body": json.dumps(currentSchedule)
     }
     return response
