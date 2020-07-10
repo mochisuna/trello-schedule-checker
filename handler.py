@@ -2,11 +2,14 @@ import datetime
 import json
 import os
 import re
-from trello import TrelloClient
 import slackweb
+import requests
+import urllib
+from threading import Thread
+from trello import TrelloClient
 
 
-def parseCard(card):
+def parse_card(card):
     labels = []
     if card.labels:
         for label in card.labels:
@@ -35,38 +38,65 @@ def within_period(name):
             return False
     return False
 
+# callback処理
+
+
+def slack_callback(url, post_data):
+    post_headers = {
+        'Content-type': 'application/json; charset=utf-8'
+    }
+
+    req = requests.post(
+        url,
+        headers=post_headers,
+        data=post_data
+    )
+    print(f"check: {req.status_code}")
+
 
 def schedule(event, context):
+    # slash-commandのtimeout対策として速攻でレスポンスを返す
+    response_url = urllib.parse.parse_qs(event.get('body'))['response_url'][0]
+    if response_url:
+        Thread(
+            target=slack_callback,
+            args=[
+                response_url,
+                json.dumps({'text': 'running slash command.'}).encode("utf-8")
+            ]
+        ).start()
+
+    # レスポンスとは別に本来の目的の処理を走らせる
     client = TrelloClient(
         api_key=os.environ.get('TRELLO_API_KEY'),
         api_secret=os.environ.get('TRELLO_API_SECRET'),
         token=os.environ.get('TRELLO_TOKEN'),
     )
-    webhookUrl = os.environ.get('WEBHOOK_URL')
-    if webhookUrl:
-        slack = slackweb.Slack(url=webhookUrl)
+    webhook_url = os.environ.get('WEBHOOK_URL')
+    if webhook_url:
+        slack = slackweb.Slack(url=webhook_url)
     else:
         slack = None
     schedules = {}
     for list in client.get_board(os.environ.get('TRELLO_BOARD_ID')).all_lists():
         schedules[list.id] = {"name": list.name, "cards": []}
         for card in list.list_cards():
-            target = parseCard(card)
+            target = parse_card(card)
             schedules[list.id]["cards"].append(target)
-    currentSchedule = schedules[os.environ.get('RUNNING_CAMPAIGN')]['cards']
-    if currentSchedule:
+    current_schedule = schedules[os.environ.get('RUNNING_CAMPAIGN')]['cards']
+    if current_schedule:
         text = "現在稼働中のキャンペーンは以下の通りです\n"
-        for card in currentSchedule:
+        for card in current_schedule:
             text += f"```キャンペーン名: {card['name']}\nラベル: {card['labels']}\nURL: {card['shortUrl']}```\n"
         if slack:
             slack.notify(text=text)
         else:
             print(text)
 
-    futureSchedule = schedules[os.environ.get('FUTURE_CAMPGAIGN')]['cards']
-    if futureSchedule:
+    future_schedule = schedules[os.environ.get('FUTURE_CAMPGAIGN')]['cards']
+    if future_schedule:
         text = "現在予定しているキャンペーンは以下の通りです\n"
-        for card in futureSchedule:
+        for card in future_schedule:
             text += f"```{card['name']}: {card['shortUrl']}```\n"
         if slack:
             slack.notify(text=text)
@@ -75,6 +105,6 @@ def schedule(event, context):
 
     response = {
         "statusCode": 200,
-        "body": json.dumps(currentSchedule)
+        "body": json.dumps(current_schedule)
     }
     return response
