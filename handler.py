@@ -41,28 +41,28 @@ def within_period(name):
 # callback処理
 
 
-def slack_callback(url, post_data):
+def slack_callback(response_url, post_data):
     post_headers = {
         'Content-type': 'application/json; charset=utf-8'
     }
 
-    req = requests.post(
-        url,
+    requests.post(
+        response_url,
         headers=post_headers,
         data=post_data
     )
-    print(f"check: {req.status_code}")
 
 
 def schedule(event, context):
     # slash-commandのtimeout対策として速攻でレスポンスを返す
     response_url = urllib.parse.parse_qs(event.get('body'))['response_url'][0]
     if response_url:
+        post_data = {'text': 'running slash command...'}
         Thread(
             target=slack_callback,
             args=[
                 response_url,
-                json.dumps({'text': 'running slash command.'}).encode("utf-8")
+                json.dumps(post_data).encode("utf-8")
             ]
         ).start()
 
@@ -103,8 +103,7 @@ def schedule(event, context):
         else:
             print(text)
 
-    response = {
+    return {
         "statusCode": 200,
         "body": json.dumps(current_schedule)
     }
-    return response
