@@ -55,13 +55,13 @@ def slack_callback(response_url, post_data):
 
 def schedule(event, context):
     # slash-commandのtimeout対策として速攻でレスポンスを返す
-    response_urls = urllib.parse.parse_qs(event.get('body'))['response_url']
-    if response_urls:
+    body = event.get('body')
+    if body:
         post_data = {'text': 'running slash command...'}
         Thread(
             target=slack_callback,
             args=[
-                response_urls[0],
+                urllib.parse.parse_qs(body)['response_url'][0],
                 json.dumps(post_data).encode("utf-8")
             ]
         ).start()
