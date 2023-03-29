@@ -1,6 +1,9 @@
 # trello-schedule-checker
 simple schedule notifier from trello
 
+# setup
+`npm install -g serverless-python-requirements`
+
 # run in local environment
 `$ sls invoke local -f run --stage <stage>`
 
